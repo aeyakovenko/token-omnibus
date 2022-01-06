@@ -10,9 +10,13 @@ pub mod token_omnibus {
     pub fn initialize(_ctx: Context<Initialize>, _data: SHA256) -> ProgramResult {
         Ok(())
     }
-    pub fn deposit(_ctx: Context<Initialize>, _data: DepositArgs) -> ProgramResult {
+    pub fn deposit(_ctx: Context<Initialize>, _data: RequestArgs) -> ProgramResult {
         Ok(())
     }
+    pub fn withdraw(_ctx: Context<Initialize>, _data: RequestArgs) -> ProgramResult {
+        Ok(())
+    }
+
 }
 
 pub type SHA256 = [u8; 32];
@@ -23,10 +27,10 @@ pub struct AccountSet {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct DepositArgs {
+pub struct RequestArgs {
     ///  proof that value is zero
     ///  Proof must start at SHA256(destination owner, amount)
-    proof_zero: [SHA256; 20],
+    proof: [SHA256; 20],
 
     /// amount must be delegated by the source token Account
     amount: u64,
@@ -45,7 +49,7 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
-pub struct Deposit<'info> {
+pub struct DepositTo<'info> {
     #[account(mut)]
     pub account_set: Account<'info, AccountSet>,
     #[account(mut)]
@@ -56,4 +60,17 @@ pub struct Deposit<'info> {
     pub mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
 
+}
+
+#[derive(Accounts)]
+pub struct WithdrawTo<'info> {
+    #[account(mut)]
+    pub account_set: Account<'info, AccountSet>,
+    #[account(mut)]
+    pub destination: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub omnibus: Account<'info, TokenAccount>,
+    pub source: Signer<'info>,
+    pub mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
 }
