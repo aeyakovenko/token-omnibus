@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, Mint, TokenAccount, Transfer};
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -19,7 +19,11 @@ pub mod token_omnibus {
             return Err(ErrorCode::NotInitialized.into());
         }
         let pda_bump = [data.pda_bump.clone()];
-        let pda_seeds = [ctx.accounts.account_set.to_account_info().key.as_ref(), ctx.accounts.mint.to_account_info().key.as_ref(), pda_bump.as_ref()];
+        let pda_seeds = [
+            ctx.accounts.account_set.to_account_info().key.as_ref(),
+            ctx.accounts.mint.to_account_info().key.as_ref(),
+            pda_bump.as_ref(),
+        ];
         let omnibus_account = Pubkey::create_program_address(&pda_seeds, &ctx.program_id)?;
         if ctx.accounts.omnibus.owner != omnibus_account {
             return Err(ErrorCode::InvalidOmnibusAccount.into());
@@ -39,6 +43,24 @@ pub mod token_omnibus {
         if !ctx.accounts.account_set.initialized {
             return Err(ErrorCode::NotInitialized.into());
         }
+        let pda_bump = [data.pda_bump.clone()];
+        let pda_seeds = [
+            ctx.accounts.account_set.to_account_info().key.as_ref(),
+            ctx.accounts.mint.to_account_info().key.as_ref(),
+            pda_bump.as_ref(),
+        ];
+        let omnibus_account = Pubkey::create_program_address(&pda_seeds, &ctx.program_id)?;
+        if ctx.accounts.omnibus.owner != omnibus_account {
+            return Err(ErrorCode::InvalidOmnibusAccount.into());
+        }
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_accounts = Transfer {
+            to: ctx.accounts.destination.to_account_info(),
+            from: ctx.accounts.omnibus.to_account_info(),
+            authority: ctx.accounts.omnibus_authority.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, pda_seeds);
+        token::transfer(cpi_ctx, data.amount)?;
         Ok(())
     }
 }
@@ -83,7 +105,6 @@ pub struct DepositTo<'info> {
     pub destination: AccountInfo<'info>,
     pub mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
-
 }
 
 #[derive(Accounts)]
@@ -97,6 +118,7 @@ pub struct WithdrawTo<'info> {
     pub source: Signer<'info>,
     pub mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+    pub omnibus_authority: AccountInfo<'info>,
 }
 
 #[error]
