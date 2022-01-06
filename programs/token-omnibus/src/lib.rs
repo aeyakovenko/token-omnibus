@@ -39,7 +39,7 @@ pub mod token_omnibus {
 
         Ok(())
     }
-    pub fn withdraw_to(ctx: Context<WithdrawTo>, _data: RequestArgs) -> ProgramResult {
+    pub fn withdraw_to(ctx: Context<WithdrawTo>, data: RequestArgs) -> ProgramResult {
         if !ctx.accounts.account_set.initialized {
             return Err(ErrorCode::NotInitialized.into());
         }
@@ -59,7 +59,8 @@ pub mod token_omnibus {
             from: ctx.accounts.omnibus.to_account_info(),
             authority: ctx.accounts.omnibus_authority.to_account_info(),
         };
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, pda_seeds);
+        let pda_seeds = [pda_seeds.as_ref()];
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, &pda_seeds);
         token::transfer(cpi_ctx, data.amount)?;
         Ok(())
     }
