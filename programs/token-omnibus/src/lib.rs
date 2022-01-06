@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
-
+use anchor_spl::token::{Mint, TokenAccount};
+use anchor_spl::token::Token;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -45,5 +46,14 @@ pub struct Initialize<'info> {
 
 #[derive(Accounts)]
 pub struct Deposit<'info> {
+    #[account(mut)]
     pub account_set: Account<'info, AccountSet>,
+    #[account(mut)]
+    pub source: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub omnibus: Account<'info, TokenAccount>,
+    pub destination: AccountInfo<'info>,
+    pub mint: Account<'info, Mint>,
+    pub token_program: Program<'info, Token>,
+
 }
