@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, TokenAccount};
-use anchor_spl::token::Token;
+use anchor_spl::token::{self, Token, Mint, TokenAccount, Transfer};
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -15,10 +14,25 @@ pub mod token_omnibus {
         ctx.accounts.account_set.initialized = true;
         Ok(())
     }
-    pub fn deposit_to(ctx: Context<DepositTo>, _data: RequestArgs) -> ProgramResult {
+    pub fn deposit_to(ctx: Context<DepositTo>, data: RequestArgs) -> ProgramResult {
         if !ctx.accounts.account_set.initialized {
             return Err(ErrorCode::NotInitialized.into());
         }
+        let pda_bump = [data.pda_bump.clone()];
+        let pda_seeds = [ctx.accounts.account_set.to_account_info().key.as_ref(), ctx.accounts.mint.to_account_info().key.as_ref(), pda_bump.as_ref()];
+        let omnibus_account = Pubkey::create_program_address(&pda_seeds, &ctx.program_id)?;
+        if ctx.accounts.omnibus.owner != omnibus_account {
+            return Err(ErrorCode::InvalidOmnibusAccount.into());
+        }
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_accounts = Transfer {
+            from: ctx.accounts.source.to_account_info(),
+            to: ctx.accounts.omnibus.to_account_info(),
+            authority: ctx.accounts.source.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        token::transfer(cpi_ctx, data.amount)?;
+
         Ok(())
     }
     pub fn withdraw_to(ctx: Context<WithdrawTo>, _data: RequestArgs) -> ProgramResult {
@@ -27,7 +41,6 @@ pub mod token_omnibus {
         }
         Ok(())
     }
-
 }
 
 pub type SHA256 = [u8; 32];
@@ -40,7 +53,6 @@ pub struct AccountSet {
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct RequestArgs {
-    ///  proof that value is zero
     ///  Proof must start at SHA256(destination owner, amount)
     proof: [SHA256; 20],
 
@@ -93,4 +105,6 @@ pub enum ErrorCode {
     AlreadyInitialized,
     #[msg("Not initialized.")]
     NotInitialized,
+    #[msg("Invalid Omnibus Account.")]
+    InvalidOmnibusAccount,
 }
