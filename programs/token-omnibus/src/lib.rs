@@ -7,13 +7,24 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 #[program]
 pub mod token_omnibus {
     use super::*;
-    pub fn initialize(_ctx: Context<Initialize>, _data: SHA256) -> ProgramResult {
+    pub fn initialize(ctx: Context<Initialize>, data: SHA256) -> ProgramResult {
+        if ctx.accounts.account_set.initialized {
+            return Err(ErrorCode::AlreadyInitialized.into());
+        }
+        ctx.accounts.account_set.root = data;
+        ctx.accounts.account_set.initialized = true;
         Ok(())
     }
-    pub fn deposit(_ctx: Context<Initialize>, _data: RequestArgs) -> ProgramResult {
+    pub fn deposit_to(ctx: Context<DepositTo>, _data: RequestArgs) -> ProgramResult {
+        if !ctx.accounts.account_set.initialized {
+            return Err(ErrorCode::NotInitialized.into());
+        }
         Ok(())
     }
-    pub fn withdraw(_ctx: Context<Initialize>, _data: RequestArgs) -> ProgramResult {
+    pub fn withdraw_to(ctx: Context<WithdrawTo>, _data: RequestArgs) -> ProgramResult {
+        if !ctx.accounts.account_set.initialized {
+            return Err(ErrorCode::NotInitialized.into());
+        }
         Ok(())
     }
 
@@ -24,6 +35,7 @@ pub type SHA256 = [u8; 32];
 #[account]
 pub struct AccountSet {
     root: SHA256,
+    initialized: bool,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -73,4 +85,12 @@ pub struct WithdrawTo<'info> {
     pub source: Signer<'info>,
     pub mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+}
+
+#[error]
+pub enum ErrorCode {
+    #[msg("Already initialized.")]
+    AlreadyInitialized,
+    #[msg("Not initialized.")]
+    NotInitialized,
 }
