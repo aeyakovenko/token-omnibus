@@ -7,7 +7,7 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 #[program]
 pub mod token_omnibus {
     use super::*;
-    pub fn initialize(ctx: Context<Initialize>, data: SHA256) -> ProgramResult {
+    pub fn initialize(ctx: Context<Initialize>, data: [u8; 32]) -> ProgramResult {
         ctx.accounts.account_set.root = data;
         Ok(())
     }
@@ -82,9 +82,7 @@ pub mod token_omnibus {
     }
 }
 
-pub type SHA256 = [u8; 32];
-
-fn recompute(mut start: SHA256, path: &[SHA256], address: u32) -> SHA256 {
+fn recompute(mut start: [u8; 32], path: &[[u8; 32]], address: u32) -> [u8; 32] {
     for (ix, s) in path.iter().enumerate() {
         if address >> ix & 1 == 1 {
             let res = hashv(&[&start, s.as_ref()]);
@@ -99,13 +97,13 @@ fn recompute(mut start: SHA256, path: &[SHA256], address: u32) -> SHA256 {
 
 #[account]
 pub struct AccountSet {
-    root: SHA256,
+    root: [u8; 32],
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct RequestArgs {
     ///  Proof must start at SHA256(destination owner, amount)
-    path: [SHA256; 20],
+    path: [[u8; 32]; 20],
     ///  The address for the path
     address: u32,
 
