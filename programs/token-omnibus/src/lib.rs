@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+use solana_program::hash::hashv;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -36,9 +37,21 @@ pub mod token_omnibus {
         };
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
         token::transfer(cpi_ctx, data.amount)?;
-
+        let start = [0; 32];
+        if recompute(start, &data.path, data.address) != ctx.accounts.account_set.root {
+            return Err(ErrorCode::InvalidMerklePath.into());
+        }
+        let hash = hashv(&[
+            ctx.accounts.omnibus.to_account_info().key.as_ref(),
+            &data.amount.to_le_bytes(),
+        ]);
+        let mut start = [0; 32];
+        start.copy_from_slice(hash.as_ref());
+        let new_root = recompute(start, &data.path, data.address);
+        ctx.accounts.account_set.root = new_root;
         Ok(())
     }
+
     pub fn withdraw_to(ctx: Context<WithdrawTo>, data: RequestArgs) -> ProgramResult {
         if !ctx.accounts.account_set.initialized {
             return Err(ErrorCode::NotInitialized.into());
@@ -62,11 +75,38 @@ pub mod token_omnibus {
         let pda_seeds = [pda_seeds.as_ref()];
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, &pda_seeds);
         token::transfer(cpi_ctx, data.amount)?;
+
+        let hash = hashv(&[
+            ctx.accounts.omnibus.to_account_info().key.as_ref(),
+            &data.amount.to_le_bytes(),
+        ]);
+        let mut start = [0; 32];
+        start.copy_from_slice(hash.as_ref());
+        if recompute(start, &data.path, data.address) != ctx.accounts.account_set.root {
+            return Err(ErrorCode::InvalidMerklePath.into());
+        }
+        let start = [0; 32];
+        let new_root = recompute(start, &data.path, data.address);
+        ctx.accounts.account_set.root = new_root;
         Ok(())
     }
 }
 
 pub type SHA256 = [u8; 32];
+
+fn recompute(mut start: [u8; 32], path: &[SHA256], address: u32) -> SHA256 {
+    for (ix, s) in path.iter().enumerate() {
+        if address >> ix & 1 == 1 {
+            let res = hashv(&[&start, s.as_ref()]);
+            start.copy_from_slice(res.as_ref());
+        } else {
+            let res = hashv(&[s.as_ref(), &start]);
+            start.copy_from_slice(res.as_ref());
+        }
+    }
+    start
+}
+
 
 #[account]
 pub struct AccountSet {
@@ -77,7 +117,9 @@ pub struct AccountSet {
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct RequestArgs {
     ///  Proof must start at SHA256(destination owner, amount)
-    proof: [SHA256; 20],
+    path: [SHA256; 20],
+    ///  The address for the path
+    address: u32,
 
     /// amount must be delegated by the source token Account
     amount: u64,
@@ -128,6 +170,8 @@ pub enum ErrorCode {
     AlreadyInitialized,
     #[msg("Not initialized.")]
     NotInitialized,
-    #[msg("Invalid Omnibus Account.")]
+    #[msg("Invalid Omnibus account.")]
     InvalidOmnibusAccount,
+    #[msg("Invalid merkle path.")]
+    InvalidMerklePath,
 }
