@@ -8,17 +8,10 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 pub mod token_omnibus {
     use super::*;
     pub fn initialize(ctx: Context<Initialize>, data: SHA256) -> ProgramResult {
-        if ctx.accounts.account_set.initialized {
-            return Err(ErrorCode::AlreadyInitialized.into());
-        }
         ctx.accounts.account_set.root = data;
-        ctx.accounts.account_set.initialized = true;
         Ok(())
     }
     pub fn deposit_to(ctx: Context<DepositTo>, data: RequestArgs) -> ProgramResult {
-        if !ctx.accounts.account_set.initialized {
-            return Err(ErrorCode::NotInitialized.into());
-        }
         let pda_bump = [data.pda_bump.clone()];
         let pda_seeds = [
             ctx.accounts.account_set.to_account_info().key.as_ref(),
@@ -53,9 +46,6 @@ pub mod token_omnibus {
     }
 
     pub fn withdraw_to(ctx: Context<WithdrawTo>, data: RequestArgs) -> ProgramResult {
-        if !ctx.accounts.account_set.initialized {
-            return Err(ErrorCode::NotInitialized.into());
-        }
         let pda_bump = [data.pda_bump.clone()];
         let pda_seeds = [
             ctx.accounts.account_set.to_account_info().key.as_ref(),
@@ -111,7 +101,6 @@ fn recompute(mut start: [u8; 32], path: &[SHA256], address: u32) -> SHA256 {
 #[account]
 pub struct AccountSet {
     root: SHA256,
-    initialized: bool,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -130,7 +119,7 @@ pub struct RequestArgs {
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    #[account(init, payer = user, space = 32)]
+    #[account(init, payer = user, space = 8 + 32)]
     pub account_set: Account<'info, AccountSet>,
     #[account(mut)]
     pub user: Signer<'info>,
@@ -167,10 +156,6 @@ pub struct WithdrawTo<'info> {
 
 #[error]
 pub enum ErrorCode {
-    #[msg("Already initialized.")]
-    AlreadyInitialized,
-    #[msg("Not initialized.")]
-    NotInitialized,
     #[msg("Invalid Omnibus account.")]
     InvalidOmnibusAccount,
     #[msg("Invalid merkle path.")]
