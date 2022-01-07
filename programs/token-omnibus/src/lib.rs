@@ -84,7 +84,7 @@ pub mod token_omnibus {
 
 pub type SHA256 = [u8; 32];
 
-fn recompute(mut start: [u8; 32], path: &[SHA256], address: u32) -> SHA256 {
+fn recompute(mut start: SHA256, path: &[SHA256], address: u32) -> SHA256 {
     for (ix, s) in path.iter().enumerate() {
         if address >> ix & 1 == 1 {
             let res = hashv(&[&start, s.as_ref()]);
@@ -96,7 +96,6 @@ fn recompute(mut start: [u8; 32], path: &[SHA256], address: u32) -> SHA256 {
     }
     start
 }
-
 
 #[account]
 pub struct AccountSet {
