@@ -33,7 +33,7 @@ pub mod token_omnibus {
         let cpi_accounts = Transfer {
             from: ctx.accounts.source.to_account_info(),
             to: ctx.accounts.omnibus.to_account_info(),
-            authority: ctx.accounts.source.to_account_info(),
+            authority: ctx.accounts.omnibus_authority.to_account_info(),
         };
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
         token::transfer(cpi_ctx, data.amount)?;
@@ -148,6 +148,7 @@ pub struct DepositTo<'info> {
     pub destination: AccountInfo<'info>,
     pub mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
+    pub omnibus_authority: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
